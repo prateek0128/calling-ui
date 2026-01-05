@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "callingUI",
-    "slug": "callingUI",
+    "slug": "calling-ui",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -43,6 +43,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ee53504a-5741-44c0-a5cd-80fceca151bc"
+      }
+    },
+    "owner": "miiscoorg"
   }
 }
