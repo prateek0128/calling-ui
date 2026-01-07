@@ -17,6 +17,7 @@ export async function ApiRequest(method: string, endpoint: string, data: any = n
     
     // Get auth token
     const authToken = await AsyncStorage.getItem('authToken');
+    console.log('Retrieved token from storage:', authToken);
     
     const isFormData = data instanceof FormData;
     const commonHeaders = isFormData 
@@ -30,9 +31,12 @@ export async function ApiRequest(method: string, endpoint: string, data: any = n
           'Authorization': authToken ? `Bearer ${authToken}` : 'Bearer CH3spwHRqPWnIHJ9fpMndI'
         };
 
+    const finalHeaders = headers ? { ...headers, ...commonHeaders } : commonHeaders;
+    console.log('Request headers:', finalHeaders);
+
     const response = await fetch(url, {
       method,
-      headers: headers ? { ...headers, ...commonHeaders } : commonHeaders,
+      headers: finalHeaders,
       body: data && !isFormData ? JSON.stringify(data) : data,
     });
 

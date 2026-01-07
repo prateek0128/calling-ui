@@ -20,6 +20,7 @@ import { GradientButton } from '../components/GradientButton';
 import { login, requestOtp } from '../endpoints/auth';
 import { Toast } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
+import { AuthCheck } from '../components/AuthCheck';
 
 const lightTheme = {
   background: '#f8fafc',
@@ -155,11 +156,12 @@ export default function LoginScreen() {
   const theme = isDark ? darkTheme : lightTheme;
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: theme.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
+    <AuthCheck>
+      <KeyboardAvoidingView 
+        style={[styles.container, { backgroundColor: theme.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       
       <LinearGradient
@@ -311,7 +313,8 @@ export default function LoginScreen() {
         visible={toast.visible}
         onHide={hideToast}
       />
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </AuthCheck>
   );
 }
 

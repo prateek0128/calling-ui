@@ -1,32 +1,26 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CustomPopup } from '../../components/CustomPopup';
 
 export default function SettingsScreen() {
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.removeItem('authToken');
-            await AsyncStorage.clear();
-            router.replace('/login');
-          }
-        }
-      ]
-    );
+    setShowLogoutPopup(true);
+  };
+
+  const confirmLogout = async () => {
+    await AsyncStorage.removeItem('authToken');
+    await AsyncStorage.clear();
+    setShowLogoutPopup(false);
+    router.replace('/login');
   };
 
   return (
@@ -53,6 +47,26 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
         </TouchableOpacity>
       </View>
+
+      <CustomPopup
+        visible={showLogoutPopup}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        type="warning"
+        buttons={[
+          {
+            text: 'Cancel',
+            onPress: () => setShowLogoutPopup(false),
+            style: 'cancel'
+          },
+          {
+            text: 'Logout',
+            onPress: confirmLogout,
+            style: 'destructive'
+          }
+        ]}
+        onClose={() => setShowLogoutPopup(false)}
+      />
     </LinearGradient>
   );
 }

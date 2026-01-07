@@ -10,42 +10,56 @@ import { Ionicons } from '@expo/vector-icons';
 interface User {
   id: number;
   name: string;
-  mobile_no: string | null;
+  mobile_no: number | null;
   instruction: string;
   status: string;
-  feedback: string;
+  feedback: string | null;
   assigned_to: string;
+  tag: string | null;
   is_processed: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export default function HomeScreen() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [feedback, setFeedback] = useState('');
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  const [completedUsers, setCompletedUsers] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadingNext, setLoadingNext] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { toast, showSuccess, showError, hideToast } = useToast();
 
   useEffect(() => {
-    fetchUsers();
+    fetchNextUser();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchNextUser = async () => {
     try {
-      const response = await GetUnregisterdUsers({ limit: 100, offset: 0 });
-      setUsers(response.users || []);
+      const response = await GetUnregisterdUsers({ 
+        status: 'pending',
+        assigned_to: '',
+        auto_assign: true,
+        limit: 1, 
+        offset: 0
+      });
+      
+      console.log('GetUnregisterdUsers response:', JSON.stringify(response, null, 2));
+      
+      if (response.users && response.users.length > 0) {
+        setCurrentUser(response.users[0]);
+      } else {
+        setCurrentUser(null);
+      }
     } catch (error) {
-      console.error('Error fetching users:', error);
-      showError('Failed to load contacts');
+      console.error('Error fetching user:', error);
+      showError('Failed to load contact');
     } finally {
       setLoading(false);
+      setLoadingNext(false);
     }
   };
 
@@ -65,21 +79,18 @@ export default function HomeScreen() {
     
     setSubmittingFeedback(true);
     try {
-      const currentUser = users[currentIndex];
-      await updateFeedback(currentUser.id, selectedStatus, feedback);
-      
-      setCompletedUsers(prev => new Set(prev).add(currentIndex));
-      
-      if (currentIndex < users.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-        setSelectedStatus('');
-        setFeedback('');
-        setShowFeedbackModal(false);
-        showSuccess('Status saved successfully!');
-      } else {
-        setShowFeedbackModal(false);
-        showSuccess('All users have been contacted successfully!');
+      if (currentUser) {
+        await updateFeedback(currentUser.id, selectedStatus, feedback);
       }
+      
+      setSelectedStatus('');
+      setFeedback('');
+      setShowFeedbackModal(false);
+      showSuccess('Status saved successfully!');
+      
+      // Fetch next user
+      setLoadingNext(true);
+      fetchNextUser();
     } catch (error) {
       console.error('Error updating feedback:', error);
       showError('Failed to save feedback. Please try again.');
@@ -88,13 +99,7 @@ export default function HomeScreen() {
     }
   };
 
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setSelectedStatus('');
-      setFeedback('');
-    }
-  };
+
 
   if (loading) {
     return (
@@ -108,13 +113,13 @@ export default function HomeScreen() {
     );
   }
 
-  if (users.length === 0) {
+  if (!currentUser && !loading) {
     return (
       <LinearGradient
         colors={isDark ? ['#0f172a', '#1e293b'] as const : ['#f0f9ff', '#e0f2fe'] as const}
         style={[styles.container, styles.centered]}
       >
-        <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>📭 No contacts found</Text>
+        <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>No contacts found</Text>
       </LinearGradient>
     );
   }
@@ -126,25 +131,21 @@ export default function HomeScreen() {
     >
       <View style={styles.header}>
         <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Calling Dashboard</Text>
-        <View style={[
-          styles.progressContainer,
-          { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)' }
-        ]}>
-          <Text style={[styles.progress, { color: isDark ? '#60a5fa' : '#3b82f6' }]}>
-            {currentIndex + 1} of {users.length} contacts
-          </Text>
-        </View>
+        {loadingNext && (
+          <View style={[styles.progressContainer, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)' }]}>
+            <Text style={[styles.progress, { color: isDark ? '#60a5fa' : '#3b82f6' }]}>Loading next contact...</Text>
+          </View>
+        )}
       </View>
 
       <UserCard
-        user={users[currentIndex] || null}
+        user={currentUser}
         onSubmit={handleSubmitFeedback}
-        onPrevious={handlePrevious}
         isDark={isDark}
-        isLastUser={currentIndex === users.length - 1}
-        isFirstUser={currentIndex === 0}
         selectedStatus={selectedStatus}
         onStatusChange={setSelectedStatus}
+        isFirstUser={true}
+        isLastUser={false}
       />
       <Toast
         message={toast.message}
@@ -298,12 +299,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  cancelButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
   submitButtonText: {
     color: 'white',
     fontWeight: '600',
+    fontSize: 16,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

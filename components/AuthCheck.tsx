@@ -1,38 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 
-export const AuthCheck: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface AuthCheckProps {
+  children: React.ReactNode;
+}
+
+export const AuthCheck: React.FC<AuthCheckProps> = ({ children }) => {
   const [isChecking, setIsChecking] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    checkAuthStatus();
+    checkAuthToken();
   }, []);
 
-  const checkAuthStatus = async () => {
+  const checkAuthToken = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
       
       if (token) {
-        // User has valid token, redirect to tabs
+        // Token exists, redirect to dashboard
         router.replace('/(tabs)');
       } else {
-        // No token, redirect to login
-        router.replace('/login');
+        // No token, stay on current screen
+        setIsChecking(false);
       }
     } catch (error) {
-      console.error('Auth check error:', error);
-      router.replace('/login');
-    } finally {
+      console.error('Error checking auth token:', error);
       setIsChecking(false);
     }
   };
 
   if (isChecking) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3b82f6" />
       </View>
     );
@@ -42,10 +44,10 @@ export const AuthCheck: React.FC<{ children: React.ReactNode }> = ({ children })
 };
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
   },
 });

@@ -6,11 +6,12 @@ import { StyleSheet, Text, TouchableOpacity, View, Modal, FlatList, Linking } fr
 interface User {
   id: number;
   name: string;
-  mobile_no: string | null;
+  mobile_no: number | null;
   instruction: string;
   status: string;
-  feedback: string;
+  feedback: string | null;
   assigned_to: string;
+  tag: string | null;
   is_processed: boolean;
   created_at: string;
   updated_at: string;
@@ -57,6 +58,8 @@ export const UserCard: React.FC<UserCardProps> = ({
         return { background: '#fef3c7', border: '#f59e0b', text: '#92400e' };
       case 'not registered':
         return { background: '#fee2e2', border: '#ef4444', text: '#dc2626' };
+      case 'matchmaking':
+        return { background: '#fdf4ff', border: '#c084fc', text: '#7c3aed' };
       default:
         return { background: '#f1f5f9', border: '#64748b', text: '#475569' };
     }
@@ -64,10 +67,11 @@ export const UserCard: React.FC<UserCardProps> = ({
 
   const getStatusLabel = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'new': return '🆕 New';
-      case 'registered': return '✅ Registered';
-      case 'called': return '📞 Called';
-      case 'not registered': return '❌ Not Registered';
+      case 'new': return 'New';
+      case 'registered': return 'Registered';
+      case 'called': return 'Called';
+      case 'not registered': return 'Not Registered';
+      case 'matchmaking': return 'Matchmaking';
       default: return status;
     }
   };
@@ -98,12 +102,12 @@ export const UserCard: React.FC<UserCardProps> = ({
         <View style={[
           styles.statusChip,
           {
-            backgroundColor: getStatusColor(user.status).background,
-            borderColor: getStatusColor(user.status).border
+            backgroundColor: getStatusColor(user.tag || 'matchmaking').background,
+            borderColor: getStatusColor(user.tag || 'matchmaking').border
           }
         ]}>
-          <Text style={[styles.statusText, { color: getStatusColor(user.status).text }]}>
-            {getStatusLabel(user.status)}
+          <Text style={[styles.statusText, { color: getStatusColor(user.tag || 'matchmaking').text }]}>
+            {getStatusLabel(user.tag || 'matchmaking')}
           </Text>
         </View>
         
@@ -134,18 +138,24 @@ export const UserCard: React.FC<UserCardProps> = ({
             borderColor: isDark ? '#475569' : '#dbeafe'
           }
         ]}>
-          <Text style={[styles.instructionTitle, { color: isDark ? '#60a5fa' : '#3b82f6' }]}>
-            📋 Call Instructions
-          </Text>
+          <View style={styles.instructionTitleRow}>
+            <Ionicons name="clipboard-outline" size={16} color={isDark ? '#ffffff' : '#3b82f6'} />
+            <Text style={[styles.instructionTitle, { color: isDark ? '#60a5fa' : '#3b82f6' }]}>
+              Call Instructions
+            </Text>
+          </View>
           <Text style={[styles.instructionText, { color: isDark ? '#e2e8f0' : '#374151' }]}>
             {user.instruction}
           </Text>
         </View>
 
         <View style={styles.dropdownSection}>
-          <Text style={[styles.dropdownLabel, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-            📋 Call Status
-          </Text>
+          <View style={styles.dropdownTitleRow}>
+            <Ionicons name="list-outline" size={16} color={isDark ? '#ffffff' : '#0f172a'} />
+            <Text style={[styles.dropdownLabel, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+              Call Status
+            </Text>
+          </View>
           <TouchableOpacity
             style={[
               styles.dropdown,
@@ -306,6 +316,11 @@ const styles = StyleSheet.create({
   instructionTitle: {
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
+  },
+  instructionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
   instructionText: {
@@ -318,6 +333,11 @@ const styles = StyleSheet.create({
   dropdownLabel: {
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
+  },
+  dropdownTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
   dropdown: {
