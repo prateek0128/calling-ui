@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,9 +8,25 @@ import { CustomPopup } from '../../components/CustomPopup';
 
 export default function SettingsScreen() {
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [userInfo, setUserInfo] = useState<any>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+
+  useEffect(() => {
+    loadUserInfo();
+  }, []);
+
+  const loadUserInfo = async () => {
+    try {
+      const storedUserInfo = await AsyncStorage.getItem('userInfo');
+      if (storedUserInfo) {
+        setUserInfo(JSON.parse(storedUserInfo));
+      }
+    } catch (error) {
+      console.error('Error loading user info:', error);
+    }
+  };
 
   const handleLogout = () => {
     setShowLogoutPopup(true);
@@ -33,6 +49,25 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.content}>
+        {userInfo && (
+          <View style={[
+            styles.userInfoCard,
+            { backgroundColor: isDark ? '#1e293b' : '#ffffff' }
+          ]}>
+            <View style={styles.userInfoHeader}>
+              <Ionicons name="person-circle" size={40} color={isDark ? '#60a5fa' : '#3b82f6'} />
+              <View style={styles.userDetails}>
+                <Text style={[styles.userName, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                  {userInfo.username}
+                </Text>
+                <Text style={[styles.userEmail, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                  {userInfo.email}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[
             styles.settingItem,
@@ -109,5 +144,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 12,
+  },
+  userInfoCard: {
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  userInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userDetails: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
