@@ -105,7 +105,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const response = await login(userId.trim(), password);
-      console.log('Login response:', response);
+      console.log('Full Login response:', JSON.stringify(response, null, 2));
       
       // Clear any existing token first
       await AsyncStorage.removeItem('authToken');
@@ -115,6 +115,16 @@ export default function LoginScreen() {
       if (response.access_token?.accessToken) {
         await AsyncStorage.setItem('authToken', response.access_token.accessToken);
         console.log('New token stored:', response.access_token.accessToken);
+        
+        // Store user information
+        const userInfo = {
+          username: response.username,
+          email: response.email,
+          admin_id: response.admin_id,
+          role: response.role
+        };
+        await AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
+        console.log('User info stored:', userInfo);
         
         // Verify token was stored
         const storedToken = await AsyncStorage.getItem('authToken');

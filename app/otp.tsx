@@ -102,6 +102,16 @@ export default function OTPScreen() {
         );
         console.log("Token stored:", response.access_token.accessToken);
 
+        // Store user information
+        const userInfo = {
+          username: response.username,
+          email: response.email,
+          admin_id: response.admin_id,
+          role: response.role
+        };
+        await AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
+        console.log('User info stored:', userInfo);
+
         // Verify token was stored
         const storedToken = await AsyncStorage.getItem("authToken");
         console.log("Verified stored token:", storedToken);

@@ -6,6 +6,7 @@ import { UserCard } from '../../components/UserCard';
 import { Toast } from '../../components/Toast';
 import { useToast } from '../../hooks/useToast';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface User {
   id: number;
@@ -29,13 +30,67 @@ export default function HomeScreen() {
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingNext, setLoadingNext] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<string>('ADMIN');
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { toast, showSuccess, showError, hideToast } = useToast();
 
   useEffect(() => {
-    fetchNextUser();
+    loadUserInfo();
   }, []);
+
+  const loadUserInfo = async () => {
+    try {
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      console.log('Stored userInfo:', userInfo);
+      
+      if (userInfo) {
+        const parsedUser = JSON.parse(userInfo);
+        console.log('Parsed user:', parsedUser);
+        const username = parsedUser.username || parsedUser.email;
+        console.log('Using username:', username);
+        setLoggedInUser(username);
+        // Call fetchNextUser with the actual username
+        fetchNextUserWithUser(username);
+      } else {
+        fetchNextUser();
+      }
+    } catch (error) {
+      console.error('Error loading user info:', error);
+      fetchNextUser();
+    }
+  };
+
+  const fetchNextUserWithUser = async (currentUser: string) => {
+    try {
+      const payload = { 
+        status: 'pending',
+        assigned_to: '',
+        auto_assign: true,
+        current_user: currentUser,
+        limit: 1, 
+        offset: 0
+      };
+      
+      console.log('GetUnregisterdUsers payload:', JSON.stringify(payload, null, 2));
+      
+      const response = await GetUnregisterdUsers(payload);
+      
+      console.log('GetUnregisterdUsers response:', JSON.stringify(response, null, 2));
+      
+      if (response.users && response.users.length > 0) {
+        setCurrentUser(response.users[0]);
+      } else {
+        setCurrentUser(null);
+      }
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      showError('Failed to load contact');
+    } finally {
+      setLoading(false);
+      setLoadingNext(false);
+    }
+  };
 
   const fetchNextUser = async () => {
     try {
@@ -43,6 +98,7 @@ export default function HomeScreen() {
         status: 'pending',
         assigned_to: '',
         auto_assign: true,
+        current_user: loggedInUser,
         limit: 1, 
         offset: 0
       };
