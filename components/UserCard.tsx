@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { MatchDetailsModal } from "./MatchDetailsModal";
 
 interface User {
   id: number;
@@ -64,6 +65,7 @@ export const UserCard: React.FC<UserCardProps> = ({
   onStatusChange,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showMatchDetails, setShowMatchDetails] = useState(false);
   const [slideAnim] = useState(new Animated.Value(0));
   const borderAnimation = new Animated.Value(0);
 
@@ -293,6 +295,16 @@ export const UserCard: React.FC<UserCardProps> = ({
           </Text>
         </View>
 
+        {user.tag === "matched_users" && (
+          <TouchableOpacity
+            style={[styles.detailsBtn, { backgroundColor: isDark ? "#475569" : "#e0f2fe" }]}
+            onPress={() => setShowMatchDetails(true)}
+          >
+            <Ionicons name="information-circle" size={20} color={isDark ? "#60a5fa" : "#3b82f6"} />
+            <Text style={[styles.detailsBtnText, { color: isDark ? "#60a5fa" : "#3b82f6" }]}>User Details</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.dropdownSection}>
           <View style={styles.dropdownTitleRow}>
             <Ionicons
@@ -410,6 +422,13 @@ export const UserCard: React.FC<UserCardProps> = ({
             </View>
           </TouchableOpacity>
         </Modal>
+
+        <MatchDetailsModal
+          visible={showMatchDetails}
+          onClose={() => setShowMatchDetails(false)}
+          instruction={user.instruction}
+          isDark={isDark}
+        />
       </LinearGradient>
     </Animated.View>
   );
@@ -597,5 +616,18 @@ const styles = StyleSheet.create({
   },
   dropdownOptionText: {
     fontSize: 16,
+  },
+  detailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  detailsBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

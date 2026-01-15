@@ -71,3 +71,7 @@ export const getMatchedUsers = async (
 export const sendWhatsAppMessage = async (messageData: any) => {
   return await ApiRequest("POST", `admin/send-whatsapp-message`, messageData);
 };
+
+export const getCustomerSupportUsers = async () => {
+  return await ApiRequest("GET", "admin/customer-support-users");
+};

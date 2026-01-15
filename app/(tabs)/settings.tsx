@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CustomPopup } from '../../components/CustomPopup';
+import { getCustomerSupportUsers } from '../../endpoints/users';
 
 export default function SettingsScreen() {
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [showUserDetails, setShowUserDetails] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
+  const [supportUsers, setSupportUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
@@ -25,6 +29,19 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error('Error loading user info:', error);
+    }
+  };
+
+  const loadSupportUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await getCustomerSupportUsers();
+      setSupportUsers(response.users || []);
+      setShowUserDetails(true);
+    } catch (error) {
+      console.error('Error loading support users:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -78,6 +95,25 @@ export default function SettingsScreen() {
             styles.settingItem,
             { backgroundColor: isDark ? '#1e293b' : '#ffffff' }
           ]}
+          onPress={loadSupportUsers}
+          disabled={loading}
+        >
+          <View style={styles.settingLeft}>
+            <Ionicons name="people-outline" size={24} color={isDark ? '#60a5fa' : '#3b82f6'} />
+            <Text style={[styles.settingText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>User Details</Text>
+          </View>
+          {loading ? (
+            <ActivityIndicator size="small" color={isDark ? '#60a5fa' : '#3b82f6'} />
+          ) : (
+            <Ionicons name="chevron-forward" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.settingItem,
+            { backgroundColor: isDark ? '#1e293b' : '#ffffff' }
+          ]}
           onPress={handleLogout}
         >
           <View style={styles.settingLeft}>
@@ -107,6 +143,32 @@ export default function SettingsScreen() {
         ]}
         onClose={() => setShowLogoutPopup(false)}
       />
+
+      <CustomPopup
+        visible={showUserDetails}
+        title="Telecaller Users"
+        message=""
+        type="info"
+        buttons={[
+          {
+            text: 'Close',
+            onPress: () => setShowUserDetails(false),
+            style: 'cancel'
+          }
+        ]}
+        onClose={() => setShowUserDetails(false)}
+      >
+        <ScrollView style={styles.userList}>
+          {supportUsers.map((user, index) => (
+            <View key={index} style={[styles.userDetailCard, { backgroundColor: isDark ? '#334155' : '#f0f9ff' }]}>
+              <Text style={[styles.userDetailName, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{user.username}</Text>
+              <Text style={[styles.userDetailText, { color: isDark ? '#94a3b8' : '#64748b' }]}>📧 {user.email}</Text>
+              <Text style={[styles.userDetailText, { color: isDark ? '#94a3b8' : '#64748b' }]}>📱 {user.phone}</Text>
+              <Text style={[styles.userDetailText, { color: isDark ? '#94a3b8' : '#64748b' }]}>ID: {user.admin_id}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </CustomPopup>
     </LinearGradient>
   );
 }
@@ -175,5 +237,23 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  userList: {
+    maxHeight: 300,
+    marginTop: 16,
+  },
+  userDetailCard: {
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  userDetailName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  userDetailText: {
+    fontSize: 14,
+    marginBottom: 2,
   },
 });

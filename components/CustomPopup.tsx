@@ -21,6 +21,7 @@ interface CustomPopupProps {
     style?: 'default' | 'destructive' | 'cancel';
   }>;
   onClose?: () => void;
+  children?: React.ReactNode;
 }
 
 export const CustomPopup: React.FC<CustomPopupProps> = ({
@@ -30,6 +31,7 @@ export const CustomPopup: React.FC<CustomPopupProps> = ({
   type = 'info',
   buttons,
   onClose,
+  children,
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -89,9 +91,13 @@ export const CustomPopup: React.FC<CustomPopupProps> = ({
             {title}
           </Text>
 
-          <Text style={[styles.message, { color: isDark ? '#d1d5db' : '#6b7280' }]}>
-            {message}
-          </Text>
+          {message && (
+            <Text style={[styles.message, { color: isDark ? '#d1d5db' : '#6b7280' }]}>
+              {message}
+            </Text>
+          )}
+
+          {children}
 
           <View style={styles.buttonContainer}>
             {buttons.map((button, index) => {
