@@ -45,6 +45,10 @@ const statusOptions = [
   "Escalate to Sonia",
   "Declined",
   "Busy Call Later",
+  "Married/Engaged",
+  "Complete Soon",
+  "Need Help completing",
+  "Not Serious",
 ];
 
 export const UserCard: React.FC<UserCardProps> = ({
@@ -217,27 +221,31 @@ export const UserCard: React.FC<UserCardProps> = ({
               {user.name}
             </Text>
             <View>
-              {user.mobile_no ? String(user.mobile_no).split(',').map((phone, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.phoneContainer}
-                  onPress={() => Linking.openURL(`tel:${phone.trim()}`)}
-                >
-                  <Ionicons
-                    name="call"
-                    size={16}
-                    color={isDark ? "#60a5fa" : "#3b82f6"}
-                  />
-                  <Text
-                    style={[
-                      styles.userPhone,
-                      { color: isDark ? "#94a3b8" : "#64748b" },
-                    ]}
-                  >
-                    {phone.trim()}
-                  </Text>
-                </TouchableOpacity>
-              )) : (
+              {user.mobile_no ? (
+                String(user.mobile_no)
+                  .split(",")
+                  .map((phone, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.phoneContainer}
+                      onPress={() => Linking.openURL(`tel:${phone.trim()}`)}
+                    >
+                      <Ionicons
+                        name="call"
+                        size={16}
+                        color={isDark ? "#60a5fa" : "#3b82f6"}
+                      />
+                      <Text
+                        style={[
+                          styles.userPhone,
+                          { color: isDark ? "#94a3b8" : "#64748b" },
+                        ]}
+                      >
+                        {phone.trim()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+              ) : (
                 <Text
                   style={[
                     styles.userPhone,
@@ -381,7 +389,7 @@ export const UserCard: React.FC<UserCardProps> = ({
               ]}
             >
               <FlatList
-                data={statusOptions}
+                data={statusOptions.sort((a, b) => a.localeCompare(b))}
                 keyExtractor={(item) => item}
                 renderItem={({ item }) => (
                   <TouchableOpacity
@@ -448,8 +456,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userName: {
-    fontSize: 26,
-    fontWeight: "700",
+    fontSize: 24,
+    fontWeight: "600",
     marginBottom: 8,
     letterSpacing: -0.5,
     marginTop: 10,
