@@ -107,9 +107,9 @@ export default function LoginScreen() {
       const response = await login(userId.trim(), password);
       console.log('Full Login response:', JSON.stringify(response, null, 2));
       
-      // Clear any existing token first
-      await AsyncStorage.removeItem('authToken');
-      console.log('Cleared existing token');
+      // Clear all existing auth data first
+      await AsyncStorage.multiRemove(['authToken', 'userInfo']);
+      console.log('Cleared existing auth data');
       
       // Store auth token
       if (response.access_token?.accessToken) {

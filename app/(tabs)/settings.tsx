@@ -33,10 +33,15 @@ export default function SettingsScreen() {
   };
 
   const confirmLogout = async () => {
-    await AsyncStorage.removeItem('authToken');
-    await AsyncStorage.clear();
-    setShowLogoutPopup(false);
-    router.replace('/login');
+    try {
+      // Clear all AsyncStorage data
+      await AsyncStorage.clear();
+      console.log('All data cleared from AsyncStorage');
+      setShowLogoutPopup(false);
+      router.replace('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   return (
