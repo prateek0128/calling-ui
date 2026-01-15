@@ -118,6 +118,7 @@ export default function HomeScreen() {
       }
       if (response?.users?.length) {
         setCurrentUser(response.users[0]);
+        console.log("Current User Response=>", response.users[0]);
       } else {
         setCurrentUser(null);
       }

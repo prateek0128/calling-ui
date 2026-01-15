@@ -216,24 +216,38 @@ export const UserCard: React.FC<UserCardProps> = ({
             >
               {user.name}
             </Text>
-            <TouchableOpacity
-              style={styles.phoneContainer}
-              onPress={handlePhonePress}
-            >
-              <Ionicons
-                name="call"
-                size={16}
-                color={isDark ? "#60a5fa" : "#3b82f6"}
-              />
-              <Text
-                style={[
-                  styles.userPhone,
-                  { color: isDark ? "#94a3b8" : "#64748b" },
-                ]}
-              >
-                {user.mobile_no || "No phone number"}
-              </Text>
-            </TouchableOpacity>
+            <View>
+              {user.mobile_no ? String(user.mobile_no).split(',').map((phone, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.phoneContainer}
+                  onPress={() => Linking.openURL(`tel:${phone.trim()}`)}
+                >
+                  <Ionicons
+                    name="call"
+                    size={16}
+                    color={isDark ? "#60a5fa" : "#3b82f6"}
+                  />
+                  <Text
+                    style={[
+                      styles.userPhone,
+                      { color: isDark ? "#94a3b8" : "#64748b" },
+                    ]}
+                  >
+                    {phone.trim()}
+                  </Text>
+                </TouchableOpacity>
+              )) : (
+                <Text
+                  style={[
+                    styles.userPhone,
+                    { color: isDark ? "#94a3b8" : "#64748b" },
+                  ]}
+                >
+                  No phone number
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 
@@ -303,7 +317,9 @@ export const UserCard: React.FC<UserCardProps> = ({
                 { color: isDark ? "#f8fafc" : "#0f172a" },
               ]}
             >
-              {selectedStatus && selectedStatus !== "pending" ? selectedStatus : "Select status..."}
+              {selectedStatus && selectedStatus !== "pending"
+                ? selectedStatus
+                : "Select status..."}
             </Text>
             <Ionicons
               name="chevron-down"
