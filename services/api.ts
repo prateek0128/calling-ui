@@ -80,9 +80,10 @@ export async function ApiRequest(
       const errorText = await response.text();
       //console.log("Error response:", errorText);
 
-      // If unauthorized, clear token and redirect to login
-      if (response.status === 401) {
+      // Only clear token on 401 if it's an auth-related endpoint
+      if (response.status === 401 && (endpoint.includes('login') || endpoint.includes('auth'))) {
         await AsyncStorage.removeItem("authToken");
+        await AsyncStorage.removeItem("userInfo");
       }
 
       throw new Error(`HTTP error! status: ${response.status}`);

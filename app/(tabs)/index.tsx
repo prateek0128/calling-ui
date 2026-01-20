@@ -21,6 +21,7 @@ import {
   updateFeedback,
 } from "../../endpoints/users";
 import { useToast } from "../../hooks/useToast";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface User {
   id: number;
@@ -60,6 +61,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { toast, showSuccess, showError, hideToast } = useToast();
+  const { logout } = useAuth();
 
   useEffect(() => {
     loadUserInfo();
@@ -83,19 +85,27 @@ export default function HomeScreen() {
 
   const getTabIcon = (tab: TabType) => {
     switch (tab) {
-      case "unregistered_user": return "person-add";
-      case "matched_users": return "heart";
-      case "incomplete_user": return "hourglass";
-      default: return "ellipse";
+      case "unregistered_user":
+        return "person-add";
+      case "matched_users":
+        return "heart";
+      case "incomplete_user":
+        return "hourglass";
+      default:
+        return "ellipse";
     }
   };
 
   const getTabColor = (tab: TabType) => {
     switch (tab) {
-      case "unregistered_user": return "#3b82f6";
-      case "matched_users": return "#ec4899";
-      case "incomplete_user": return "#f59e0b";
-      default: return "#3b82f6";
+      case "unregistered_user":
+        return "#3b82f6";
+      case "matched_users":
+        return "#ec4899";
+      case "incomplete_user":
+        return "#f59e0b";
+      default:
+        return "#3b82f6";
     }
   };
   const fetchUsersByTab = async (tab: TabType) => {
@@ -160,7 +170,7 @@ export default function HomeScreen() {
         }
       }
     };
-    
+
     if (loggedInUser && activeTab) {
       fetchUsersByTab(activeTab);
     }
@@ -273,6 +283,7 @@ export default function HomeScreen() {
       setSubmittingFeedback(false);
     }
   };
+  console.log("Current User=>", currentUser);
   return (
     <LinearGradient
       colors={
@@ -285,19 +296,41 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.titleSection}>
           <LinearGradient
-            colors={['#3b82f6', '#8b5cf6']}
+            colors={["#3b82f6", "#8b5cf6"]}
             style={styles.titleIcon}
           >
             <Ionicons name="call" size={24} color="#ffffff" />
           </LinearGradient>
-          <View>
-            <Text style={[styles.title, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.title, { color: isDark ? "#f8fafc" : "#0f172a" }]}
+            >
               Calling Dashboard
             </Text>
-            <Text style={[styles.subtitle, { color: isDark ? "#94a3b8" : "#64748b" }]}>
-              {currentUser ? `Current: ${activeTab.replace('_', ' ')}` : 'No active user'}
+            <Text
+              style={[
+                styles.subtitle,
+                { color: isDark ? "#94a3b8" : "#64748b" },
+              ]}
+            >
+              {currentUser
+                ? `Current: ${activeTab.replace("_", " ")}`
+                : "No active user"}
             </Text>
           </View>
+          <TouchableOpacity
+            onPress={logout}
+            style={[
+              styles.logoutButton,
+              { backgroundColor: isDark ? "#374151" : "#f3f4f6" }
+            ]}
+          >
+            <Ionicons 
+              name="log-out-outline" 
+              size={20} 
+              color={isDark ? "#f87171" : "#dc2626"} 
+            />
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -315,23 +348,31 @@ export default function HomeScreen() {
                 style={[
                   styles.tab,
                   {
-                    backgroundColor: isActive ? tabColor : (isDark ? "#334155" : "#f1f5f9"),
+                    backgroundColor: isActive
+                      ? tabColor
+                      : isDark
+                      ? "#334155"
+                      : "#f1f5f9",
                     borderColor: isActive ? tabColor : "transparent",
                   },
                 ]}
                 onPress={() => setActiveTab(tab.key)}
                 activeOpacity={0.8}
               >
-                <Ionicons 
-                  name={getTabIcon(tab.key) as any} 
-                  size={16} 
-                  color={isActive ? "#ffffff" : (isDark ? "#94a3b8" : "#64748b")} 
+                <Ionicons
+                  name={getTabIcon(tab.key) as any}
+                  size={16}
+                  color={isActive ? "#ffffff" : isDark ? "#94a3b8" : "#64748b"}
                 />
                 <Text
                   style={[
                     styles.tabText,
                     {
-                      color: isActive ? "#ffffff" : (isDark ? "#94a3b8" : "#64748b"),
+                      color: isActive
+                        ? "#ffffff"
+                        : isDark
+                        ? "#94a3b8"
+                        : "#64748b",
                     },
                   ]}
                 >
@@ -343,7 +384,12 @@ export default function HomeScreen() {
         </ScrollView>
 
         {loadingNext && (
-          <View style={[styles.progressContainer, { backgroundColor: getTabColor(activeTab) + '20' }]}>
+          <View
+            style={[
+              styles.progressContainer,
+              { backgroundColor: getTabColor(activeTab) + "20" },
+            ]}
+          >
             <ActivityIndicator size="small" color={getTabColor(activeTab)} />
             <Text style={[styles.progress, { color: getTabColor(activeTab) }]}>
               Loading next contact...
@@ -355,11 +401,19 @@ export default function HomeScreen() {
       {loading && (
         <View style={styles.loadingContainer}>
           <LinearGradient
-            colors={[getTabColor(activeTab) + '20', getTabColor(activeTab) + '10']}
+            colors={[
+              getTabColor(activeTab) + "20",
+              getTabColor(activeTab) + "10",
+            ]}
             style={styles.loadingCard}
           >
             <ActivityIndicator size="large" color={getTabColor(activeTab)} />
-            <Text style={[styles.loadingText, { color: isDark ? "#94a3b8" : "#64748b" }]}>
+            <Text
+              style={[
+                styles.loadingText,
+                { color: isDark ? "#94a3b8" : "#64748b" },
+              ]}
+            >
               Loading contacts...
             </Text>
           </LinearGradient>
@@ -369,15 +423,32 @@ export default function HomeScreen() {
       {!loading && !currentUser && activeTab && (
         <View style={styles.emptyContainer}>
           <LinearGradient
-            colors={[getTabColor(activeTab) + '20', getTabColor(activeTab) + '10']}
+            colors={[
+              getTabColor(activeTab) + "20",
+              getTabColor(activeTab) + "10",
+            ]}
             style={styles.emptyCard}
           >
-            <Ionicons name={getTabIcon(activeTab) as any} size={48} color={getTabColor(activeTab)} />
-            <Text style={[styles.emptyTitle, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+            <Ionicons
+              name={getTabIcon(activeTab) as any}
+              size={48}
+              color={getTabColor(activeTab)}
+            />
+            <Text
+              style={[
+                styles.emptyTitle,
+                { color: isDark ? "#f8fafc" : "#0f172a" },
+              ]}
+            >
               No Contacts Found
             </Text>
-            <Text style={[styles.emptyText, { color: isDark ? "#94a3b8" : "#64748b" }]}>
-              No {activeTab.replace('_', ' ')} contacts available at the moment
+            <Text
+              style={[
+                styles.emptyText,
+                { color: isDark ? "#94a3b8" : "#64748b" },
+              ]}
+            >
+              No {activeTab.replace("_", " ")} contacts available at the moment
             </Text>
           </LinearGradient>
         </View>
@@ -477,26 +548,26 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   titleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
   },
   titleIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 16,
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: -1,
   },
   subtitle: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: 2,
   },
   tabScrollContainer: {
@@ -505,8 +576,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 25,
@@ -519,12 +590,12 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 20,
@@ -533,46 +604,46 @@ const styles = StyleSheet.create({
   },
   progress: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   loadingCard: {
     padding: 40,
     borderRadius: 20,
-    alignItems: 'center',
+    alignItems: "center",
     minWidth: 200,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   emptyCard: {
     padding: 40,
     borderRadius: 20,
-    alignItems: 'center',
+    alignItems: "center",
     minWidth: 250,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   modalOverlay: {
@@ -630,5 +701,11 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
     fontSize: 16,
+  },
+  logoutButton: {
+    padding: 8,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

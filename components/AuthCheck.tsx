@@ -18,12 +18,13 @@ export const AuthCheck: React.FC<AuthCheckProps> = ({ children }) => {
   const checkAuthToken = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
+      const userInfo = await AsyncStorage.getItem('userInfo');
       
-      if (token) {
-        // Token exists, redirect to dashboard
+      if (token && userInfo) {
+        // Both token and user info exist, redirect to dashboard
         router.replace('/(tabs)');
       } else {
-        // No token, stay on current screen
+        // Missing auth data, stay on current screen
         setIsChecking(false);
       }
     } catch (error) {
