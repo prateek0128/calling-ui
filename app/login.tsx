@@ -142,7 +142,13 @@ export default function LoginScreen() {
       }
       
       showSuccess('Login successful!');
-      setTimeout(() => router.replace('/(tabs)'), 1000);
+      
+      // Check user role and redirect accordingly
+      if (response.role === 'SUPER_ADMIN') {
+        setTimeout(() => router.replace('/super-admin'), 1000);
+      } else {
+        setTimeout(() => router.replace('/(tabs)'), 1000);
+      }
     } catch (error: any) {
       showError(error.message || 'Login failed');
     } finally {

@@ -10,11 +10,20 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: isDark ? '#60a5fa' : '#3b82f6',
-        tabBarInactiveTintColor: isDark ? '#94a3b8' : '#64748b',
+        tabBarActiveTintColor: '#3b82f6',
+        tabBarInactiveTintColor: isDark ? '#64748b' : '#94a3b8',
         headerShown: false,
         tabBarStyle: {
           backgroundColor: isDark ? '#1e293b' : '#ffffff',
+          borderTopWidth: 1,
+          borderTopColor: isDark ? '#334155' : '#e2e8f0',
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
         },
       }}>
       <Tabs.Screen
@@ -25,10 +34,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="whatsapp"
+        options={{
+          title: 'WhatsApp',
+          tabBarIcon: ({ color }) => <Ionicons name="logo-whatsapp" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="others"
         options={{
           title: 'Others',
-          tabBarIcon: ({ color }) => <Ionicons name="ellipsis-horizontal" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="people" size={24} color={color} />,
         }}
       />
       <Tabs.Screen

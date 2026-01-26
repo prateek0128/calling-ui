@@ -15,13 +15,15 @@ import {
 } from "react-native";
 import { Toast } from "../../components/Toast";
 import { UserCard } from "../../components/UserCard";
+import { FilterState, UserFilter } from "../../components/UserFilter";
+import { useAuth } from "../../contexts/AuthContext";
 import {
+  GetUnregisterdUsers,
   getUnregisteredUsers,
   sendWhatsAppMessage,
   updateFeedback,
 } from "../../endpoints/users";
 import { useToast } from "../../hooks/useToast";
-import { useAuth } from "../../contexts/AuthContext";
 
 interface User {
   id: number;
@@ -51,13 +53,24 @@ const TABS: {
 export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("unregistered_user");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState("pending");
+  const setSelectedStatus = (status: string) => {
+    console.log("🔄 setSelectedStatus called with:", status);
+    console.trace("📍 Stack trace for setSelectedStatus");
+    setSelectedStatusState(status);
+  };
+  const [selectedStatusState, setSelectedStatusState] = useState("");
   const [feedback, setFeedback] = useState("");
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [fetchingUsers, setFetchingUsers] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({});
   const [loading, setLoading] = useState(false);
   const [loadingNext, setLoadingNext] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<string>("ADMIN");
+  const [showPhoneSelection, setShowPhoneSelection] = useState(false);
+  const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>("");
+  const [availablePhoneNumbers, setAvailablePhoneNumbers] = useState<string[]>([]);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { toast, showSuccess, showError, hideToast } = useToast();
@@ -118,7 +131,7 @@ export default function HomeScreen() {
           response = await getUnregisteredUsers(
             activeTab,
             selectedStatus,
-            loggedInUser
+            loggedInUser,
           );
           break;
 
@@ -126,7 +139,7 @@ export default function HomeScreen() {
           response = await getUnregisteredUsers(
             activeTab,
             selectedStatus,
-            loggedInUser
+            loggedInUser,
           );
           break;
 
@@ -134,7 +147,7 @@ export default function HomeScreen() {
           response = await getUnregisteredUsers(
             activeTab,
             selectedStatus,
-            loggedInUser
+            loggedInUser,
           );
 
           break;
@@ -157,22 +170,11 @@ export default function HomeScreen() {
   };
   useEffect(() => {
     const fetchData = async () => {
-      if (loggedInUser && activeTab && selectedStatus === "") {
-        const response = await getUnregisteredUsers(
-          activeTab,
-          "pending",
-          loggedInUser
-        );
-        if (response?.users?.length) {
-          setCurrentUser(response.users[0]);
-        } else {
-          setCurrentUser(null);
-        }
-      }
+      // Only fetch when user explicitly requests it, not automatically
     };
 
     if (loggedInUser && activeTab) {
-      fetchUsersByTab(activeTab);
+      // Remove automatic API calls - only call when user clicks buttons
     }
     fetchData();
   }, [loggedInUser, activeTab]);
@@ -197,7 +199,7 @@ export default function HomeScreen() {
       const response = await getUnregisteredUsers(
         activeTab,
         "pending",
-        loggedInUser
+        loggedInUser,
       );
       if (response?.users?.length) {
         setCurrentUser(response.users[0]);
@@ -210,35 +212,72 @@ export default function HomeScreen() {
     }
   };
   const handleSubmitFeedback = () => {
+    console.log("🔍 handleSubmitFeedback called with selectedStatus:", selectedStatusState);
+    
+    if (!selectedStatusState) {
+      console.log("❌ No status selected, showing error");
+      showError("Please select a call status before proceeding");
+      return;
+    }
+    
+    console.log("✅ Status validated:", selectedStatusState);
+    
+    // Check if multiple phone numbers exist
+    if (currentUser?.mobile_no) {
+      const phoneNumbers = String(currentUser.mobile_no)
+        .split(",")
+        .map((phone) => phone.trim())
+        .filter((phone) => phone);
+      
+      const uniquePhoneNumbers = Array.from(new Set(phoneNumbers));
+      console.log("📞 Phone numbers found:", uniquePhoneNumbers);
+      
+      if (uniquePhoneNumbers.length > 1) {
+        console.log("📱 Multiple numbers, showing phone selection");
+        // Show phone selection modal
+        setAvailablePhoneNumbers(uniquePhoneNumbers);
+        setShowPhoneSelection(true);
+        return;
+      } else if (uniquePhoneNumbers.length === 1) {
+        console.log("📱 Single number, auto-selecting:", uniquePhoneNumbers[0]);
+        setSelectedPhoneNumber(uniquePhoneNumbers[0]);
+      }
+    }
+    
+    console.log("📝 Opening feedback modal with status:", selectedStatusState);
+    setShowFeedbackModal(true);
+  };
+  const handleSkipFeedback = async () => {
     if (!selectedStatus) {
       showError("Please select a call status before proceeding");
       return;
     }
-    setShowFeedbackModal(true);
-  };
-  const handleSkipFeedback = async () => {
+    
     try {
       if (currentUser) {
         await updateFeedback(
           currentUser.id,
-          selectedStatus,
-          "Auto-skipped for " + selectedStatus
+          selectedStatusState,
+          "Auto-skipped for " + selectedStatusState,
         );
       }
+      
+      showSuccess("Status saved successfully!");
+      setSelectedStatus("");
+      setLoadingNext(true);
+      
       const response = await getUnregisteredUsers(
         activeTab,
         "pending",
-        loggedInUser
+        loggedInUser,
       );
       if (response?.users?.length) {
         setCurrentUser(response.users[0]);
       } else {
         setCurrentUser(null);
       }
-      setSelectedStatus("");
-      showSuccess("Status saved successfully!");
-      setLoadingNext(true);
-      fetchNextUser();
+      
+      setLoadingNext(false);
     } catch (error) {
       console.error("Error updating feedback:", error);
       showError("Failed to save feedback. Please try again.");
@@ -249,32 +288,88 @@ export default function HomeScreen() {
       showError("Please enter feedback before proceeding");
       return;
     }
+
+    if (!currentUser) {
+      showError("No user selected");
+      return;
+    }
+
+    if (!selectedStatusState) {
+      showError("No status selected");
+      return;
+    }
+
     setSubmittingFeedback(true);
     try {
-      if (currentUser) {
-        await updateFeedback(
-          currentUser.id,
-          selectedStatus,
-          feedback,
-          currentUser.priority
-        );
+      console.log("Submitting feedback with:", {
+        userId: currentUser.id,
+        status: selectedStatusState,
+        feedback: feedback,
+        priority: currentUser.priority,
+        selectedPhone: selectedPhoneNumber,
+      });
+
+      // 1️⃣ Call Feedback API
+      await updateFeedback(
+        currentUser.id,
+        selectedStatusState,
+        feedback,
+        currentUser.priority,
+      );
+      console.log("✅ Feedback API called successfully");
+
+      // 2️⃣ Send WhatsApp message for Interested/Not Interested status
+      if (
+        selectedStatusState === "Interested" ||
+        selectedStatusState === "Not Interested"
+      ) {
+        const isInterested = selectedStatusState === "Interested" ? 1 : 0;
+
+        if (selectedPhoneNumber) {
+          const messageData = {
+            phone_number: selectedPhoneNumber,
+            name: currentUser.name,
+            is_interested: isInterested,
+          };
+
+          await sendWhatsAppMessage(messageData);
+          console.log(
+            `✅ WhatsApp sent to ${selectedPhoneNumber} for status: ${selectedStatusState}`,
+          );
+        }
       }
+
+      // 3️⃣ Fetch next user
       const response = await getUnregisteredUsers(
         activeTab,
         "pending",
-        loggedInUser
+        loggedInUser,
       );
       if (response?.users?.length) {
         setCurrentUser(response.users[0]);
       } else {
         setCurrentUser(null);
       }
-      setSelectedStatus("");
       setFeedback("");
+      setSelectedPhoneNumber("");
       setShowFeedbackModal(false);
       showSuccess("Status saved successfully!");
+      // Reset status only after successful completion
+      setSelectedStatus("");
+      // Don't call fetchNextUser() here as it will reset status again
       setLoadingNext(true);
-      fetchNextUser();
+      // Fetch next user directly without calling fetchNextUser
+      const nextResponse = await getUnregisteredUsers(
+        activeTab,
+        "pending",
+        loggedInUser,
+      );
+      if (nextResponse?.users?.length) {
+        setCurrentUser(nextResponse.users[0]);
+      } else {
+        setCurrentUser(null);
+      }
+      setLoadingNext(false);
     } catch (error) {
       console.log("Error updating feedback:", error);
       console.error("Error updating feedback:", error);
@@ -283,7 +378,44 @@ export default function HomeScreen() {
       setSubmittingFeedback(false);
     }
   };
+
+  const handleFetchAllUsers = async () => {
+    setFetchingUsers(true);
+    try {
+      const response = await GetUnregisterdUsers({
+        tag: activeTab,
+        status: "pending",
+        state: filters.state || undefined,
+        city: filters.city || undefined,
+        assigned_to: loggedInUser,
+        auto_assign: true,
+        current_user: loggedInUser,
+        limit: 1,
+        offset: 0,
+      });
+      console.log("Fetched users:", response);
+      if (response?.users?.length) {
+        setCurrentUser(response.users[0]);
+      } else {
+        setCurrentUser(null);
+      }
+      showSuccess(`Fetched ${response.users?.length || 0} users`);
+    } catch (error: any) {
+      showError(error.message || "Failed to fetch users");
+    } finally {
+      setFetchingUsers(false);
+    }
+  };
+
+  const handleApplyFilters = (newFilters: FilterState) => {
+    setFilters(newFilters);
+    const hasFilters = newFilters.state || newFilters.city || newFilters.status;
+    showSuccess(
+      hasFilters ? "Filters applied" : "No filters - using default API call",
+    );
+  };
   console.log("Current User=>", currentUser);
+  console.log("🔍 Current selectedStatus:", selectedStatusState);
   return (
     <LinearGradient
       colors={
@@ -322,13 +454,13 @@ export default function HomeScreen() {
             onPress={logout}
             style={[
               styles.logoutButton,
-              { backgroundColor: isDark ? "#374151" : "#f3f4f6" }
+              { backgroundColor: isDark ? "#374151" : "#f3f4f6" },
             ]}
           >
-            <Ionicons 
-              name="log-out-outline" 
-              size={20} 
-              color={isDark ? "#f87171" : "#dc2626"} 
+            <Ionicons
+              name="log-out-outline"
+              size={20}
+              color={isDark ? "#f87171" : "#dc2626"}
             />
           </TouchableOpacity>
         </View>
@@ -351,8 +483,8 @@ export default function HomeScreen() {
                     backgroundColor: isActive
                       ? tabColor
                       : isDark
-                      ? "#334155"
-                      : "#f1f5f9",
+                        ? "#334155"
+                        : "#f1f5f9",
                     borderColor: isActive ? tabColor : "transparent",
                   },
                 ]}
@@ -371,8 +503,8 @@ export default function HomeScreen() {
                       color: isActive
                         ? "#ffffff"
                         : isDark
-                        ? "#94a3b8"
-                        : "#64748b",
+                          ? "#94a3b8"
+                          : "#64748b",
                     },
                   ]}
                 >
@@ -382,6 +514,58 @@ export default function HomeScreen() {
             );
           })}
         </ScrollView>
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: isDark ? "#1e293b" : "#ffffff",
+                borderWidth: 1,
+                borderColor: isDark ? "#475569" : "#e2e8f0",
+                shadowColor: isDark ? "#000" : "#3b82f6",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 8,
+                elevation: 6,
+              },
+            ]}
+            onPress={() => setShowFilter(true)}
+          >
+            <LinearGradient
+              colors={["#6366f1", "#8b5cf6"]}
+              style={styles.iconContainer}
+            >
+              <Ionicons name="filter" size={16} color="white" />
+            </LinearGradient>
+            <Text
+              style={[
+                styles.filterButtonText,
+                { color: isDark ? "#f8fafc" : "#1e293b" },
+              ]}
+            >
+              Filter
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.fetchButton,
+              { backgroundColor: getTabColor(activeTab) },
+            ]}
+            onPress={handleFetchAllUsers}
+            disabled={fetchingUsers}
+          >
+            {fetchingUsers ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <>
+                <Ionicons name="download" size={16} color="white" />
+                <Text style={styles.fetchButtonText}>Fetch Users</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {loadingNext && (
           <View
@@ -461,10 +645,12 @@ export default function HomeScreen() {
           onSkip={handleSkipFeedback}
           onNext={fetchNextUser}
           isDark={isDark}
-          selectedStatus={selectedStatus}
+          selectedStatus={selectedStatusState}
           onStatusChange={setSelectedStatus}
           isFirstUser={true}
           isLastUser={false}
+          onFetchUsers={handleFetchAllUsers}
+          onOpenFilters={() => setShowFilter(true)}
         />
       )}
       <Toast
@@ -486,7 +672,7 @@ export default function HomeScreen() {
                 { color: isDark ? "#f8fafc" : "#0f172a" },
               ]}
             >
-              📝 Add Feedback
+              📝 Add Feedback - {selectedStatusState}
             </Text>
             <TextInput
               style={[
@@ -497,7 +683,7 @@ export default function HomeScreen() {
                   color: isDark ? "#f8fafc" : "#0f172a",
                 },
               ]}
-              placeholder="Enter your feedback about the call..."
+              placeholder={`Enter feedback for ${selectedStatusState} status...`}
               placeholderTextColor={isDark ? "#94a3b8" : "#64748b"}
               value={feedback}
               onChangeText={setFeedback}
@@ -534,6 +720,77 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
       </Modal>
+
+      {/* Phone Selection Modal */}
+      <Modal visible={showPhoneSelection} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={isDark ? ["#1e293b", "#334155"] : ["#ffffff", "#f8fafc"]}
+            style={styles.phoneSelectionModal}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: isDark ? "#f8fafc" : "#0f172a" },
+              ]}
+            >
+              📞 Select Phone Number
+            </Text>
+            <Text
+              style={[
+                styles.phoneSelectionSubtitle,
+                { color: isDark ? "#94a3b8" : "#64748b" },
+              ]}
+            >
+              Which number did you call?
+            </Text>
+            
+            {availablePhoneNumbers.map((phone, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.phoneOption,
+                  {
+                    backgroundColor: isDark ? "#475569" : "#f1f5f9",
+                    borderColor: isDark ? "#64748b" : "#e2e8f0",
+                  },
+                ]}
+                onPress={() => {
+                  setSelectedPhoneNumber(phone);
+                  setShowPhoneSelection(false);
+                  setShowFeedbackModal(true);
+                }}
+              >
+                <Ionicons name="call" size={20} color={getTabColor(activeTab)} />
+                <Text
+                  style={[
+                    styles.phoneOptionText,
+                    { color: isDark ? "#f8fafc" : "#0f172a" },
+                  ]}
+                >
+                  {phone}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+              </TouchableOpacity>
+            ))}
+            
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setShowPhoneSelection(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </Modal>
+
+      <UserFilter
+        visible={showFilter}
+        onClose={() => setShowFilter(false)}
+        onApplyFilters={handleApplyFilters}
+        currentFilters={filters}
+        isDark={isDark}
+      />
     </LinearGradient>
   );
 }
@@ -702,10 +959,73 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 16,
   },
+  phoneSelectionModal: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 24,
+    maxHeight: "80%",
+  },
+  phoneSelectionSubtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  phoneOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 12,
+  },
+  phoneOptionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+  },
   logoutButton: {
     padding: 8,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+  },
+  fetchButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    flex: 1,
+    gap: 8,
+  },
+  fetchButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    marginHorizontal: 20,
+    marginTop: 16,
+    gap: 16,
+  },
+  filterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    gap: 12,
+  },
+  filterButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  iconContainer: {
+    borderRadius: 8,
+    padding: 6,
   },
 });

@@ -2,16 +2,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-  Animated,
-  FlatList,
-  Linking,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    FlatList,
+    Linking,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
+import { sendWhatsAppMessage } from "../endpoints/users";
 import { MatchDetailsModal } from "./MatchDetailsModal";
+import { QuickActions } from "./QuickActions";
+import { SmartStatusSelector } from "./SmartStatusSelector";
 
 interface User {
   id: number;
@@ -25,6 +29,7 @@ interface User {
   is_processed: boolean;
   created_at: string;
   updated_at: string;
+  priority?: string;
 }
 
 interface UserCardProps {
@@ -38,6 +43,8 @@ interface UserCardProps {
   isFirstUser: boolean;
   selectedStatus: string;
   onStatusChange: (status: string) => void;
+  onFetchUsers?: () => void;
+  onOpenFilters?: () => void;
 }
 
 const statusOptions = [
@@ -63,9 +70,15 @@ export const UserCard: React.FC<UserCardProps> = ({
   isFirstUser,
   selectedStatus,
   onStatusChange,
+  onFetchUsers,
+  onOpenFilters,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMatchDetails, setShowMatchDetails] = useState(false);
+  const [showPhoneSelection, setShowPhoneSelection] = useState(false);
+  const [pendingWhatsAppData, setPendingWhatsAppData] = useState<{
+    isInterested: number;
+  } | null>(null);
   const [slideAnim] = useState(new Animated.Value(0));
   const borderAnimation = new Animated.Value(0);
 
@@ -87,7 +100,18 @@ export const UserCard: React.FC<UserCardProps> = ({
     animate();
   }, []);
 
-  const animateSlide = () => {
+  const animateSlide = async () => {
+    console.log("🔍 UserCard animateSlide called with selectedStatus:", selectedStatus);
+    
+    // Validate that status is selected
+    if (!selectedStatus) {
+      console.warn("❌ UserCard: Status not selected, cannot proceed");
+      // Don't return early - let the parent component handle the validation
+      // return;
+    } else {
+      console.log("✅ UserCard: Status validated:", selectedStatus);
+    }
+
     Animated.timing(slideAnim, {
       toValue: 300,
       duration: 300,
@@ -96,19 +120,43 @@ export const UserCard: React.FC<UserCardProps> = ({
       slideAnim.setValue(0);
     });
 
-    if (
-      selectedStatus === "Interested" ||
-      selectedStatus === "Busy Call Later"||
-      selectedStatus === "Declined"||
-      selectedStatus === "Not Serious"
-    ) {
-      onSkip();
-    } else {
-      onSubmit();
-    }
+    // For all statuses, show feedback modal to get customer support feedback
+    console.log(`📝 UserCard: Calling onSubmit with status: ${selectedStatus}`);
+    onSubmit();
 
     if (onNext) {
       onNext();
+    }
+  };
+
+  const sendWhatsAppToNumber = async (
+    phoneNumber: string,
+    isInterested: number,
+  ) => {
+    try {
+      const messageData = {
+        phone_number: phoneNumber,
+        name: user.name,
+        is_interested: isInterested,
+      };
+
+      await sendWhatsAppMessage(messageData);
+      console.log(`WhatsApp message sent to ${phoneNumber}`);
+    } catch (error) {
+      console.error(
+        `Failed to send WhatsApp message to ${phoneNumber}:`,
+        error,
+      );
+    }
+  };
+
+  const handlePhoneSelection = async (selectedPhone: string) => {
+    if (pendingWhatsAppData) {
+      await sendWhatsAppToNumber(
+        selectedPhone,
+        pendingWhatsAppData.isInterested,
+      );
+      setPendingWhatsAppData(null);
     }
   };
 
@@ -146,12 +194,6 @@ export const UserCard: React.FC<UserCardProps> = ({
     }
   };
 
-  const handlePhonePress = () => {
-    if (user?.mobile_no) {
-      Linking.openURL(`tel:${user.mobile_no}`);
-    }
-  };
-
   const handleStatusSelect = (status: string) => {
     onStatusChange(status);
     setShowDropdown(false);
@@ -170,69 +212,87 @@ export const UserCard: React.FC<UserCardProps> = ({
         },
       ]}
     >
-      <LinearGradient
-        colors={
-          isDark
-            ? (["#1e293b", "#334155"] as const)
-            : (["#ffffff", "#f8fafc"] as const)
-        }
-        style={styles.userCard}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* Quick Actions */}
+      <QuickActions
+        isDark={isDark}
+        currentUser={user}
+        onFetchUsers={onFetchUsers || (() => {})}
+        onOpenFilters={onOpenFilters || (() => {})}
+      />
+
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <Animated.View
-          style={[
-            styles.statusChip,
-            {
-              backgroundColor: getStatusColor(user.tag || "matchmaking")
-                .background,
-              borderColor: borderAnimation.interpolate({
-                inputRange: [0, 1],
-                outputRange: [
-                  getStatusColor(user.tag || "matchmaking").border,
-                  "#8c24fbff",
-                ],
-              }),
-            },
-          ]}
+        <LinearGradient
+          colors={
+            isDark
+              ? (["#1e293b", "#334155"] as const)
+              : (["#ffffff", "#f8fafc"] as const)
+          }
+          style={styles.userCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <Text
+          <Animated.View
             style={[
-              styles.statusText,
-              { color: getStatusColor(user.tag || "matchmaking").text },
+              styles.statusChip,
+              {
+                backgroundColor: getStatusColor(user.tag || "matchmaking")
+                  .background,
+                borderColor: borderAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [
+                    getStatusColor(user.tag || "matchmaking").border,
+                    "#8c24fbff",
+                  ],
+                }),
+              },
             ]}
           >
-            {getStatusLabel(user.tag || "matchmaking")}
-          </Text>
-        </Animated.View>
-
-        <View style={styles.userHeader}>
-          <LinearGradient
-            colors={["#3b82f6", "#8b5cf6"] as const}
-            style={styles.avatarContainer}
-          >
-            <Text style={styles.avatarText}>
-              {user.name.charAt(0).toUpperCase()}
-            </Text>
-          </LinearGradient>
-          <View style={styles.userInfo}>
             <Text
               style={[
-                styles.userName,
-                { color: isDark ? "#f8fafc" : "#0f172a" },
+                styles.statusText,
+                { color: getStatusColor(user.tag || "matchmaking").text },
               ]}
             >
-              {user.name}
+              {getStatusLabel(user.tag || "matchmaking")}
             </Text>
-            <View>
-              {user.mobile_no ? (
-                String(user.mobile_no)
-                  .split(",")
-                  .map((phone, index) => (
+          </Animated.View>
+
+          <View style={styles.userHeader}>
+            <LinearGradient
+              colors={["#3b82f6", "#8b5cf6"] as const}
+              style={styles.avatarContainer}
+            >
+              <Text style={styles.avatarText}>
+                {user.name.charAt(0).toUpperCase()}
+              </Text>
+            </LinearGradient>
+            <View style={styles.userInfo}>
+              <Text
+                style={[
+                  styles.userName,
+                  { color: isDark ? "#f8fafc" : "#0f172a" },
+                ]}
+              >
+                {user.name}
+              </Text>
+              <View>
+                {user.mobile_no ? (
+                  Array.from(
+                    new Set(
+                      String(user.mobile_no)
+                        .split(",")
+                        .map((phone) => phone.trim())
+                        .filter((phone) => phone),
+                    ),
+                  ).map((phone, index) => (
                     <TouchableOpacity
                       key={index}
                       style={styles.phoneContainer}
-                      onPress={() => Linking.openURL(`tel:${phone.trim()}`)}
+                      onPress={() => Linking.openURL(`tel:${phone}`)}
                     >
                       <Ionicons
                         name="call"
@@ -245,220 +305,243 @@ export const UserCard: React.FC<UserCardProps> = ({
                           { color: isDark ? "#94a3b8" : "#64748b" },
                         ]}
                       >
-                        {phone.trim()}
+                        {phone}
                       </Text>
                     </TouchableOpacity>
                   ))
-              ) : (
-                <Text
-                  style={[
-                    styles.userPhone,
-                    { color: isDark ? "#94a3b8" : "#64748b" },
-                  ]}
-                >
-                  No phone number
-                </Text>
-              )}
+                ) : (
+                  <Text
+                    style={[
+                      styles.userPhone,
+                      { color: isDark ? "#94a3b8" : "#64748b" },
+                    ]}
+                  >
+                    No phone number
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
-        </View>
 
-        <View
-          style={[
-            styles.instructionCard,
-            {
-              backgroundColor: isDark ? "#334155" : "#f0f9ff",
-              borderColor: isDark ? "#475569" : "#dbeafe",
-            },
-          ]}
-        >
-          <View style={styles.instructionTitleRow}>
-            <Ionicons
-              name="clipboard-outline"
-              size={16}
-              color={isDark ? "#ffffff" : "#3b82f6"}
-            />
-            <Text
-              style={[
-                styles.instructionTitle,
-                { color: isDark ? "#60a5fa" : "#3b82f6" },
-              ]}
-            >
-              Call Instructions
-            </Text>
-          </View>
-          <Text
+          <View
             style={[
-              styles.instructionText,
-              { color: isDark ? "#e2e8f0" : "#374151" },
-            ]}
-          >
-            {user.tag === "matched_users"
-              ? "Click 'User Details' to view matches"
-              : user.instruction}
-          </Text>
-        </View>
-
-        {user.tag === "matched_users" && (
-          <TouchableOpacity
-            style={[
-              styles.detailsBtn,
-              { backgroundColor: isDark ? "#475569" : "#e0f2fe" },
-            ]}
-            onPress={() => setShowMatchDetails(true)}
-          >
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color={isDark ? "#60a5fa" : "#3b82f6"}
-            />
-            <Text
-              style={[
-                styles.detailsBtnText,
-                { color: isDark ? "#60a5fa" : "#3b82f6" },
-              ]}
-            >
-              User Details
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.dropdownSection}>
-          <View style={styles.dropdownTitleRow}>
-            <Ionicons
-              name="list-outline"
-              size={16}
-              color={isDark ? "#ffffff" : "#0f172a"}
-            />
-            <Text
-              style={[
-                styles.dropdownLabel,
-                { color: isDark ? "#f8fafc" : "#0f172a" },
-              ]}
-            >
-              Call Status
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.dropdown,
+              styles.instructionCard,
               {
-                backgroundColor: isDark ? "#475569" : "#ffffff",
-                borderColor: isDark ? "#64748b" : "#e2e8f0",
+                backgroundColor: isDark ? "#334155" : "#f0f9ff",
+                borderColor: isDark ? "#475569" : "#dbeafe",
               },
             ]}
-            onPress={() => setShowDropdown(true)}
           >
+            <View style={styles.instructionTitleRow}>
+              <Ionicons
+                name="clipboard-outline"
+                size={16}
+                color={isDark ? "#ffffff" : "#3b82f6"}
+              />
+              <Text
+                style={[
+                  styles.instructionTitle,
+                  { color: isDark ? "#60a5fa" : "#3b82f6" },
+                ]}
+              >
+                Call Instructions
+              </Text>
+            </View>
             <Text
               style={[
-                styles.dropdownText,
-                { color: isDark ? "#f8fafc" : "#0f172a" },
+                styles.instructionText,
+                { color: isDark ? "#e2e8f0" : "#374151" },
               ]}
             >
-              {selectedStatus && selectedStatus !== "pending"
-                ? selectedStatus
-                : "Select status..."}
+              {user.tag === "matched_users"
+                ? "Click 'User Details' to view matches"
+                : user.instruction}
             </Text>
-            <Ionicons
-              name="chevron-down"
-              size={20}
-              color={isDark ? "#94a3b8" : "#64748b"}
-            />
-          </TouchableOpacity>
-        </View>
+          </View>
 
-        <View style={styles.navigationButtons}>
-          {!isFirstUser && (
+          {user.tag === "matched_users" && (
             <TouchableOpacity
-              onPress={onPrevious}
-              style={styles.prevButtonContainer}
+              style={[
+                styles.detailsBtn,
+                { backgroundColor: isDark ? "#475569" : "#e0f2fe" },
+              ]}
+              onPress={() => setShowMatchDetails(true)}
             >
-              <LinearGradient
-                colors={["#6b7280", "#4b5563"] as const}
-                style={styles.prevButton}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+              <Ionicons
+                name="information-circle"
+                size={20}
+                color={isDark ? "#60a5fa" : "#3b82f6"}
+              />
+              <Text
+                style={[
+                  styles.detailsBtnText,
+                  { color: isDark ? "#60a5fa" : "#3b82f6" },
+                ]}
               >
-                <Ionicons name="arrow-back" size={20} color="white" />
-                <Text style={styles.prevButtonText}>Previous</Text>
-              </LinearGradient>
+                User Details
+              </Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            onPress={animateSlide}
-            style={[styles.buttonContainer, !isFirstUser && styles.nextButton]}
-          >
-            <LinearGradient
-              colors={["#3b82f6", "#1d4ed8"] as const}
-              style={styles.submitButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Text style={styles.submitButtonText}>
-                {isLastUser ? "✅ Complete Review" : "Next Person"}
-              </Text>
-              <Ionicons
-                name={isLastUser ? "checkmark-circle" : "arrow-forward"}
-                size={20}
-                color="white"
-              />
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+          {/* Smart Status Selector */}
+          <SmartStatusSelector
+            selectedStatus={selectedStatus}
+            onStatusChange={onStatusChange}
+            isDark={isDark}
+          />
 
-        <Modal visible={showDropdown} transparent animationType="fade">
+          {/* More Options Button */}
           <TouchableOpacity
-            style={styles.modalOverlay}
-            onPress={() => setShowDropdown(false)}
+            style={[
+              styles.moreOptionsButton,
+              { backgroundColor: isDark ? "#475569" : "#f1f5f9" },
+            ]}
+            onPress={() => setShowDropdown(true)}
           >
-            <View
+            <Ionicons
+              name="ellipsis-horizontal"
+              size={20}
+              color={isDark ? "#94a3b8" : "#64748b"}
+            />
+            <Text
               style={[
-                styles.dropdownModal,
-                { backgroundColor: isDark ? "#1e293b" : "#ffffff" },
+                styles.moreOptionsText,
+                { color: isDark ? "#94a3b8" : "#64748b" },
               ]}
             >
-              <FlatList
-                data={statusOptions.sort((a, b) => a.localeCompare(b))}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.dropdownOption}
-                    onPress={() => handleStatusSelect(item)}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownOptionText,
-                        { color: isDark ? "#f8fafc" : "#0f172a" },
-                      ]}
-                    >
-                      {item}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
+              More Options
+            </Text>
           </TouchableOpacity>
-        </Modal>
 
-        <MatchDetailsModal
-          visible={showMatchDetails}
-          onClose={() => setShowMatchDetails(false)}
-          instruction={user.instruction}
-          isDark={isDark}
-        />
-      </LinearGradient>
+          <View style={styles.navigationButtons}>
+            {!isFirstUser && (
+              <TouchableOpacity
+                onPress={onPrevious}
+                style={styles.prevButtonContainer}
+              >
+                <LinearGradient
+                  colors={["#6b7280", "#4b5563"] as const}
+                  style={styles.prevButton}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Ionicons name="arrow-back" size={20} color="white" />
+                  <Text style={styles.prevButtonText}>Previous</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={animateSlide}
+              style={[
+                styles.buttonContainer,
+                !isFirstUser && styles.nextButton,
+              ]}
+              disabled={!selectedStatus}
+            >
+              <LinearGradient
+                colors={
+                  selectedStatus
+                    ? ["#3b82f6", "#1d4ed8"]
+                    : ["#9ca3af", "#6b7280"]
+                }
+                style={styles.submitButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.submitButtonText}>
+                  {!selectedStatus
+                    ? "Select Status First"
+                    : isLastUser
+                      ? "✅ Complete"
+                      : "Next Person"}
+                </Text>
+                <Ionicons
+                  name={isLastUser ? "checkmark-circle" : "arrow-forward"}
+                  size={20}
+                  color="white"
+                />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </ScrollView>
+
+      <Modal visible={showDropdown} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          onPress={() => setShowDropdown(false)}
+        >
+          <View
+            style={[
+              styles.dropdownModal,
+              { backgroundColor: isDark ? "#1e293b" : "#ffffff" },
+            ]}
+          >
+            <Text
+              style={[
+                styles.dropdownTitle,
+                { color: isDark ? "#f8fafc" : "#0f172a" },
+              ]}
+            >
+              All Status Options
+            </Text>
+            <FlatList
+              data={statusOptions.sort((a, b) => a.localeCompare(b))}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.dropdownOption,
+                    selectedStatus === item && {
+                      backgroundColor: "#3b82f6" + "20",
+                    },
+                  ]}
+                  onPress={() => handleStatusSelect(item)}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownOptionText,
+                      { color: isDark ? "#f8fafc" : "#0f172a" },
+                      selectedStatus === item && { fontWeight: "600" },
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                  {selectedStatus === item && (
+                    <Ionicons name="checkmark" size={16} color="#3b82f6" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <MatchDetailsModal
+        visible={showMatchDetails}
+        onClose={() => setShowMatchDetails(false)}
+        instruction={user.instruction}
+        isDark={isDark}
+      />
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   cardContainer: {
+    flex: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 12,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   userCard: {
     position: "relative",
@@ -627,13 +710,36 @@ const styles = StyleSheet.create({
     padding: 8,
     maxHeight: 300,
   },
+  dropdownTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    padding: 16,
+    textAlign: "center",
+  },
   dropdownOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0, 0, 0, 0.1)",
   },
   dropdownOptionText: {
     fontSize: 16,
+  },
+  moreOptionsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  moreOptionsText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   detailsBtn: {
     flexDirection: "row",

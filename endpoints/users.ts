@@ -1,7 +1,10 @@
 import { ApiRequest } from "../services/api";
 
 interface GetUsersParams {
+  tag?: string;
   status?: string;
+  state?: string;
+  city?: string;
   assigned_to?: string;
   auto_assign?: boolean;
   current_user?: string;
@@ -11,7 +14,10 @@ interface GetUsersParams {
 
 export const GetUnregisterdUsers = async (params: GetUsersParams = {}) => {
   const {
+    tag,
     status,
+    state,
+    city,
     assigned_to,
     auto_assign,
     current_user,
@@ -20,7 +26,10 @@ export const GetUnregisterdUsers = async (params: GetUsersParams = {}) => {
   } = params;
   const queryParams = new URLSearchParams();
 
+  if (tag) queryParams.append("tag", tag);
   if (status) queryParams.append("status", status);
+  if (state) queryParams.append("state", state);
+  if (city) queryParams.append("city", city);
   if (assigned_to) queryParams.append("assigned_to", assigned_to);
   if (auto_assign !== undefined)
     queryParams.append("auto_assign", auto_assign.toString());
@@ -48,13 +57,24 @@ export const updateFeedback = async (
 export const getUnregisteredUsers = async (
   tag: any,
   status?: string,
-  currentUser?: string
+  currentUser?: string,
+  state?: string,
+  city?: string
 ) => {
-  if(status=="pending"){console.log("Pending Status Payload=>",status,currentUser,tag)}
-  return await ApiRequest(
-    "GET",
-    `admin/unregistered-users?tag=${tag}&status=${status}&assigned_to=${currentUser}&auto_assign=${true}&current_user=${currentUser}&limit=${1}&offset=${0}`
-  );
+  const params = new URLSearchParams();
+  if (tag) params.append("tag", tag);
+  if (status) params.append("status", status);
+  if (state) params.append("state", state);
+  if (city) params.append("city", city);
+  if (currentUser) {
+    params.append("assigned_to", currentUser);
+    params.append("current_user", currentUser);
+  }
+  params.append("auto_assign", "true");
+  params.append("limit", "1");
+  params.append("offset", "0");
+  
+  return await ApiRequest("GET", `admin/unregistered-users?${params}`);
 };
 
 export const getMatchedUsers = async (

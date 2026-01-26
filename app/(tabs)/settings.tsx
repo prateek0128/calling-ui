@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CustomPopup } from '../../components/CustomPopup';
+import { StatsCard } from '../../components/StatsCard';
 
 export default function SettingsScreen() {
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
@@ -50,58 +51,82 @@ export default function SettingsScreen() {
       colors={isDark ? ['#0f172a', '#1e293b', '#334155'] as const : ['#f0f9ff', '#e0f2fe', '#f8fafc'] as const}
       style={styles.container}
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Settings</Text>
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <LinearGradient
+            colors={['#3b82f6', '#8b5cf6']}
+            style={styles.headerIcon}
+          >
+            <Ionicons name="settings" size={28} color="white" />
+          </LinearGradient>
+          <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Settings</Text>
+          <Text style={[styles.headerSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>Manage your account & preferences</Text>
+        </View>
 
-      <View style={styles.content}>
-        {userInfo && (
-          <View style={[
-            styles.userInfoCard,
-            { backgroundColor: isDark ? '#1e293b' : '#ffffff' }
-          ]}>
-            <View style={styles.userInfoHeader}>
-              <Ionicons name="person-circle" size={40} color={isDark ? '#60a5fa' : '#3b82f6'} />
-              <View style={styles.userDetails}>
-                <Text style={[styles.userName, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-                  {userInfo.username}
-                </Text>
-                <Text style={[styles.userEmail, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-                  {userInfo.email}
-                </Text>
+        <View style={styles.content}>
+          {/* Profile Section */}
+          {userInfo && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>PROFILE</Text>
+              <View style={[
+                styles.profileCard,
+                { backgroundColor: isDark ? '#1e293b' : '#ffffff' }
+              ]}>
+                <LinearGradient
+                  colors={['#3b82f6', '#8b5cf6']}
+                  style={styles.profileAvatar}
+                >
+                  <Text style={styles.avatarText}>{userInfo.username?.charAt(0).toUpperCase()}</Text>
+                </LinearGradient>
+                <View style={styles.profileInfo}>
+                  <Text style={[styles.profileName, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                    {userInfo.username}
+                  </Text>
+                  <Text style={[styles.profileEmail, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                    {userInfo.email}
+                  </Text>
+                  <View style={[styles.roleBadge, { backgroundColor: isDark ? '#374151' : '#f3f4f6' }]}>
+                    <Ionicons name="shield-checkmark" size={14} color={isDark ? '#60a5fa' : '#3b82f6'} />
+                    <Text style={[styles.roleText, { color: isDark ? '#60a5fa' : '#3b82f6' }]}>
+                      {userInfo.role || 'User'}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[styles.editButton, { backgroundColor: isDark ? '#374151' : '#f3f4f6' }]}
+                  onPress={() => setShowUserDetails(true)}
+                >
+                  <Ionicons name="pencil" size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                </TouchableOpacity>
               </View>
             </View>
-          </View>
-        )}
+          )}
 
-        <TouchableOpacity
-          style={[
-            styles.settingItem,
-            { backgroundColor: isDark ? '#1e293b' : '#ffffff' }
-          ]}
-          onPress={() => setShowUserDetails(true)}
-        >
-          <View style={styles.settingLeft}>
-            <Ionicons name="person-outline" size={24} color={isDark ? '#60a5fa' : '#3b82f6'} />
-            <Text style={[styles.settingText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>User Details</Text>
+          {/* Account Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>ACCOUNT</Text>
+            <View style={[styles.settingsGroup, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={handleLogout}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconContainer, { backgroundColor: '#ef4444' + '20' }]}>
+                    <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+                  </View>
+                  <View>
+                    <Text style={[styles.settingTitle, { color: '#ef4444' }]}>Sign Out</Text>
+                    <Text style={[styles.settingSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>Sign out of your account</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={isDark ? '#64748b' : '#94a3b8'} />
+              </TouchableOpacity>
+            </View>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.settingItem,
-            { backgroundColor: isDark ? '#1e293b' : '#ffffff' }
-          ]}
-          onPress={handleLogout}
-        >
-          <View style={styles.settingLeft}>
-            <Ionicons name="log-out-outline" size={24} color="#ef4444" />
-            <Text style={[styles.settingText, { color: '#ef4444' }]}>Logout</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
-        </TouchableOpacity>
-      </View>
+          <StatsCard isDark={isDark} />
+        </View>
+      </ScrollView>
 
       <CustomPopup
         visible={showLogoutPopup}
@@ -195,67 +220,145 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    paddingTop: 60,
+    paddingBottom: 32,
     paddingHorizontal: 20,
+  },
+  headerIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -1,
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   content: {
     paddingHorizontal: 20,
+    paddingBottom: 40,
   },
-  settingItem: {
+  section: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  profileAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  avatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: 'white',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  roleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  editButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsGroup: {
+    borderRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   settingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  settingText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
-  userInfoCard: {
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  userInfoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userDetails: {
-    marginLeft: 16,
     flex: 1,
   },
-  userName: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
+  settingIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
-  userEmail: {
-    fontSize: 14,
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  settingSubtitle: {
+    fontSize: 13,
     fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    marginHorizontal: 20,
   },
   detailsContainer: {
     marginTop: 20,
