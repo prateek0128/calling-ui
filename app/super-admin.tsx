@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,7 +32,7 @@ import {
   getInterestedNotRegisteredUsers,
   sendWhatsAppMessage,
 } from "../endpoints/users";
-import { getAssignmentStats, AssignmentStats } from "../endpoints/stats";
+import { getAssignmentStats, AssignmentStats, sendStatsEmail } from "../endpoints/stats";
 import { useToast } from "../hooks/useToast";
 
 interface User {
@@ -79,6 +80,11 @@ export default function SuperAdminScreen() {
   const [isInterested, setIsInterested] = useState<number | null>(null);
   const [statsData, setStatsData] = useState<AssignmentStats[]>([]);
   const [showCurrentDay, setShowCurrentDay] = useState(false);
+  const [sendingEmailFor, setSendingEmailFor] = useState<string | null>(null);
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState<string>('all');
+  const [showTimePeriodModal, setShowTimePeriodModal] = useState(false);
+  const [othersSubTab, setOthersSubTab] = useState<string>('escalated');
+  const [downloading, setDownloading] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { toast, showSuccess, showError, hideToast } = useToast();
@@ -125,7 +131,37 @@ export default function SuperAdminScreen() {
       let response;
       
       if (activeTab === "others") {
-        response = await getEscalatedUsers();
+        switch (othersSubTab) {
+          case 'escalated':
+            response = await getEscalatedUsers();
+            break;
+          case 'not_serious':
+            response = await getNotSeriousUsers();
+            break;
+          case 'declined':
+            response = await getDeclinedUsers();
+            break;
+          case 'busy':
+            response = await getBusyCallLaterUsers();
+            break;
+          case 'interested':
+            response = await getInterestedUsers();
+            break;
+          case 'not_interested':
+            response = await getNotInterestedUsers();
+            break;
+          case 'married':
+            response = await getMarriedEngagedUsers();
+            break;
+          case 'complete_soon':
+            response = await getCompleteSoonUsers();
+            break;
+          case 'need_help':
+            response = await getNeedHelpUsers();
+            break;
+          default:
+            response = await getEscalatedUsers();
+        }
       } else if (activeTab === "whatsapp") {
         setUsers([]);
         setLoading(false);
@@ -210,6 +246,7 @@ export default function SuperAdminScreen() {
   const renderStatsCard = ({ item }: { item: AssignmentStats }) => {
     const totalCalls = item.total;
     const completionRate = totalCalls > 0 ? ((totalCalls - item.pending) / totalCalls * 100).toFixed(1) : '0';
+    const isSending = sendingEmailFor === item.assigned_to;
     
     return (
       <View style={[styles.statsCard, { backgroundColor: isDark ? "#1e293b" : "#ffffff" }]}>
@@ -250,6 +287,26 @@ export default function SuperAdminScreen() {
             <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Pending</Text>
           </View>
         </View>
+
+        <TouchableOpacity
+          style={[
+            styles.emailStatsButton,
+            { backgroundColor: isDark ? "#374151" : "#f3f4f6" }
+          ]}
+          onPress={() => handleSendStatsEmail(item.assigned_to, `${item.assigned_to}@example.com`)}
+          disabled={isSending}
+        >
+          {isSending ? (
+            <ActivityIndicator size="small" color="#3b82f6" />
+          ) : (
+            <>
+              <Ionicons name="mail" size={16} color="#3b82f6" />
+              <Text style={[styles.emailStatsButtonText, { color: isDark ? "#94a3b8" : "#64748b" }]}>
+                Email Stats
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
     );
   };
@@ -261,6 +318,108 @@ export default function SuperAdminScreen() {
       hasFilters ? "Filters applied" : "Filters cleared",
     );
   };
+
+  const handleSendStatsEmail = async (username: string, email: string) => {
+    setSendingEmailFor(username);
+    try {
+      await sendStatsEmail(username, email, selectedTimePeriod);
+      showSuccess(`Statistics sent to ${email}`);
+    } catch (error) {
+      showError('Failed to send email');
+    } finally {
+      setSendingEmailFor(null);
+    }
+  };
+
+  const handleDownloadExcel = () => {
+    if (users.length === 0) {
+      showError('No data to download');
+      return;
+    }
+    setDownloading(true);
+    try {
+      const csvData = convertToCSV(users);
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `users_${activeTab}_${Date.now()}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showSuccess('File downloaded successfully');
+    } catch (error) {
+      showError('Failed to download file');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const convertToCSV = (data: User[]) => {
+    const headers = ['ID', 'Name', 'Mobile', 'Status', 'Feedback', 'Assigned To', 'Tag', 'Priority', 'Created At'];
+    const rows = data.map(user => [
+      user.id,
+      user.name,
+      user.mobile_no || '',
+      user.status,
+      user.feedback || '',
+      user.assigned_to,
+      user.tag || '',
+      user.priority,
+      new Date(user.created_at).toLocaleDateString()
+    ]);
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
+  };
+
+  const timePeriodOptions = [
+    { label: 'All Time', value: 'all' },
+    { label: 'Today', value: 'current' },
+    { label: 'Yesterday', value: 'yesterday' },
+    { label: 'Last 7 Days', value: 'last_7_days' },
+    { label: 'Last 15 Days', value: 'last_15_days' },
+    { label: 'Last 30 Days', value: 'last_30_days' },
+    { label: 'Last 3 Months', value: 'last_3_months' },
+  ];
+
+  const othersSubTabs = [
+    { key: 'escalated', label: 'Escalated', icon: 'arrow-up-circle' },
+    { key: 'not_serious', label: 'Not Serious', icon: 'warning' },
+    { key: 'declined', label: 'Declined', icon: 'close-circle' },
+    { key: 'busy', label: 'Busy Call Later', icon: 'time' },
+    { key: 'interested', label: 'Interested', icon: 'heart' },
+    { key: 'not_interested', label: 'Not Interested', icon: 'heart-dislike' },
+    { key: 'married', label: 'Married/Engaged', icon: 'people' },
+    { key: 'complete_soon', label: 'Complete Soon', icon: 'checkmark-circle' },
+    { key: 'need_help', label: 'Need Help', icon: 'help-circle' },
+  ];
+
+  const renderUserItem = ({ item }: { item: User }) => (
+    <TouchableOpacity
+      style={[styles.userItem, { backgroundColor: isDark ? "#1e293b" : "#ffffff" }]}
+      onPress={() => handleUserPress(item)}
+    >
+      <View style={styles.userHeader}>
+        <LinearGradient
+          colors={["#3b82f6", "#8b5cf6"]}
+          style={styles.avatar}
+        >
+          <Text style={styles.avatarText}>
+            {item.name.charAt(0).toUpperCase()}
+          </Text>
+        </LinearGradient>
+        <View style={styles.userInfo}>
+          <Text style={[styles.userName, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+            {item.name}
+          </Text>
+          <Text style={[styles.userPhone, { color: isDark ? "#94a3b8" : "#64748b" }]}>
+            {item.mobile_no || "No phone"}
+          </Text>
+          <Text style={[styles.userStatus, { color: "#f59e0b" }]}>
+            {item.status} • {item.assigned_to}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <LinearGradient
@@ -360,6 +519,55 @@ export default function SuperAdminScreen() {
           })}
         </ScrollView>
 
+        {/* Others Sub-tabs */}
+        {activeTab === "others" && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subTabScrollContainer}
+          >
+            {othersSubTabs.map((subTab) => {
+              const isActive = othersSubTab === subTab.key;
+              return (
+                <TouchableOpacity
+                  key={subTab.key}
+                  style={[
+                    styles.subTab,
+                    {
+                      backgroundColor: isActive
+                        ? "#8b5cf6"
+                        : isDark
+                        ? "#475569"
+                        : "#e2e8f0",
+                    },
+                  ]}
+                  onPress={() => setOthersSubTab(subTab.key)}
+                >
+                  <Ionicons
+                    name={subTab.icon as any}
+                    size={14}
+                    color={isActive ? "#ffffff" : isDark ? "#94a3b8" : "#64748b"}
+                  />
+                  <Text
+                    style={[
+                      styles.subTabText,
+                      {
+                        color: isActive
+                          ? "#ffffff"
+                          : isDark
+                          ? "#94a3b8"
+                          : "#64748b",
+                      },
+                    ]}
+                  >
+                    {subTab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[
@@ -378,6 +586,33 @@ export default function SuperAdminScreen() {
               Filter
             </Text>
           </TouchableOpacity>
+
+          {users.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.downloadButton,
+                { backgroundColor: isDark ? "#1e293b" : "#ffffff" },
+              ]}
+              onPress={handleDownloadExcel}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <ActivityIndicator size="small" color="#22c55e" />
+              ) : (
+                <>
+                  <Ionicons name="download" size={16} color="#22c55e" />
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      { color: isDark ? "#f8fafc" : "#1e293b" },
+                    ]}
+                  >
+                    Excel
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[
@@ -406,6 +641,28 @@ export default function SuperAdminScreen() {
             Loading users...
           </Text>
         </View>
+      ) : activeTab === "statistics" ? (
+        <View style={styles.statsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.timePeriodSelector,
+              { backgroundColor: isDark ? "#334155" : "#f1f5f9" }
+            ]}
+            onPress={() => setShowTimePeriodModal(true)}
+          >
+            <Ionicons name="calendar" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+            <Text style={[styles.timePeriodText, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+              {timePeriodOptions.find(opt => opt.value === selectedTimePeriod)?.label || 'All Time'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+          </TouchableOpacity>
+          <FlatList
+            data={statsData}
+            renderItem={renderStatsCard}
+            keyExtractor={(item) => item.assigned_to}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
       ) : (
         <FlatList
           data={users}
@@ -423,6 +680,36 @@ export default function SuperAdminScreen() {
           }
         />
       )}
+
+      <Modal visible={showTimePeriodModal} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          onPress={() => setShowTimePeriodModal(false)}
+        >
+          <View style={[styles.dropdownModal, { backgroundColor: isDark ? "#1e293b" : "#ffffff" }]}>
+            <Text style={[styles.modalTitle, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+              Select Time Period
+            </Text>
+            {timePeriodOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={styles.dropdownOption}
+                onPress={() => {
+                  setSelectedTimePeriod(option.value);
+                  setShowTimePeriodModal(false);
+                }}
+              >
+                <Text style={[styles.dropdownOptionText, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+                  {option.label}
+                </Text>
+                {selectedTimePeriod === option.value && (
+                  <Ionicons name="checkmark" size={20} color="#3b82f6" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <Toast
         message={toast.message}
@@ -515,6 +802,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     gap: 12,
     flex: 1,
+  },
+  downloadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    gap: 12,
+    flex: 0.8,
   },
   filterButtonText: {
     fontSize: 16,
@@ -687,5 +984,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     textAlign: "center",
+  },
+  emailStatsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  emailStatsButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  timePeriodSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  timePeriodText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dropdownModal: {
+    width: "80%",
+    borderRadius: 12,
+    padding: 16,
+    maxHeight: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  dropdownOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(148, 163, 184, 0.2)",
+  },
+  dropdownOptionText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  subTabScrollContainer: {
+    paddingHorizontal: 4,
+    gap: 8,
+    marginBottom: 16,
+  },
+  subTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+  },
+  subTabText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

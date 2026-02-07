@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { getAssignmentStats, AssignmentStats } from '../endpoints/stats';
+import { getAssignmentStats, AssignmentStats, sendStatsEmail } from '../endpoints/stats';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface StatsCardProps {
@@ -20,7 +20,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
   const [stats, setStats] = useState<AssignmentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
   const [showCurrentDay, setShowCurrentDay] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     loadUserStats();
@@ -31,11 +33,14 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
       // Get current user
       const userInfo = await AsyncStorage.getItem('userInfo');
       let username = 'ADMIN';
+      let email = '';
       if (userInfo) {
         const parsedUser = JSON.parse(userInfo);
         username = parsedUser.username || parsedUser.email;
+        email = parsedUser.email || '';
       }
       setCurrentUser(username);
+      setUserEmail(email);
 
       // Fetch stats
       const response = await getAssignmentStats(showCurrentDay);
@@ -82,6 +87,24 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
 
   const formatStatusLabel = (status: string) => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const handleSendEmail = async () => {
+    if (!userEmail) {
+      alert('Email not found in user profile');
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const time = showCurrentDay ? 'current' : 'all';
+      await sendStatsEmail(currentUser, userEmail, time);
+      alert('Statistics sent to your email successfully!');
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Failed to send email. Please try again.');
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   if (loading) {
@@ -175,6 +198,27 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Send Email Button */}
+        <TouchableOpacity
+          style={[
+            styles.emailButton,
+            { backgroundColor: isDark ? '#374151' : '#f3f4f6' }
+          ]}
+          onPress={handleSendEmail}
+          disabled={sendingEmail}
+        >
+          {sendingEmail ? (
+            <ActivityIndicator size="small" color="#3b82f6" />
+          ) : (
+            <>
+              <Ionicons name="mail" size={16} color="#3b82f6" />
+              <Text style={[styles.emailButtonText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                Email Stats
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -364,6 +408,20 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  emailButtonText: {
     fontSize: 14,
     fontWeight: '600',
   },

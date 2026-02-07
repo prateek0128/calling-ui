@@ -28,3 +28,11 @@ export const getAssignmentStats = async (currentDay?: boolean): Promise<Assignme
     : "admin/assignment-stats";
   return await ApiRequest("GET", endpoint);
 };
+
+export const sendStatsEmail = async (username: string, email: string, time: string = "all") => {
+  const formData = new FormData();
+  formData.append('username', username);
+  formData.append('email', email);
+  formData.append('time', time);
+  return await ApiRequest("POST", "admin/send-employee-statics-excelfile", formData);
+};
