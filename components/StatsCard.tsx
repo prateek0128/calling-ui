@@ -1,14 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,32 +16,20 @@ interface StatsCardProps {
   isDark: boolean;
 }
 
-const TIME_PERIODS = [
-  { key: 'all', label: 'All Time' },
-  { key: 'current', label: 'Today' },
-  { key: 'yesterday', label: 'Yesterday' },
-  { key: 'last_7_days', label: 'Last 7 Days' },
-  { key: 'last_15_days', label: 'Last 15 Days' },
-  { key: 'last_30_days', label: 'Last 30 Days' },
-  { key: 'last_3_months', label: 'Last 3 Months' },
-];
-
 export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
   const [stats, setStats] = useState<AssignmentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string>('');
   const [userEmail, setUserEmail] = useState<string>('');
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
+  const [showCurrentDay, setShowCurrentDay] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     loadUserStats();
-  }, [selectedPeriod]);
+  }, [showCurrentDay]);
 
   const loadUserStats = async () => {
-    setLoading(true);
     try {
-      // Get current user
       const userInfo = await AsyncStorage.getItem('userInfo');
       let username = 'ADMIN';
       let email = '';
@@ -56,18 +41,11 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
       setCurrentUser(username);
       setUserEmail(email);
 
-      // Fetch stats
-      const response = await getAssignmentStats(selectedPeriod);
-      // Ensure response.data is an array before trying to find
-      if (response && Array.isArray(response.data)) {
-        const userStats = response.data.find(stat => stat.assigned_to === username);
-        setStats(userStats || null);
-      } else {
-        setStats(null);
-      }
+      const response = await getAssignmentStats(showCurrentDay);
+      const userStats = response.data.find(stat => stat.assigned_to === username);
+      setStats(userStats || null);
     } catch (error) {
       console.error('Error loading stats:', error);
-      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -127,70 +105,64 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
     }
   };
 
-  const handleSendEmail = async () => {
-    if (!userEmail) {
-      alert('Email not found in user profile');
-      return;
-    }
-    setSendingEmail(true);
-    try {
-      const time = showCurrentDay ? 'current' : 'all';
-      await sendStatsEmail(currentUser, userEmail, time);
-      alert('Statistics sent to your email successfully!');
-    } catch (error) {
-      console.error('Error sending email:', error);
-      alert('Failed to send email. Please try again.');
-    } finally {
-      setSendingEmail(false);
-    }
-  };
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={[styles.loadingText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+          Loading your stats...
+        </Text>
+      </View>
+    );
+  }
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={[styles.loadingText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-            Loading stats...
-          </Text>
-        </View>
-      );
-    }
+  if (!stats) {
+    return (
+      <View style={[styles.emptyContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
+        <Ionicons name="stats-chart" size={48} color={isDark ? '#64748b' : '#94a3b8'} />
+        <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+          No statistics available for {currentUser}
+        </Text>
+      </View>
+    );
+  }
 
-    if (!stats) {
-      return (
-        <View style={[styles.emptyContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
-          <Ionicons name="stats-chart" size={48} color={isDark ? '#64748b' : '#94a3b8'} />
-          <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-            No data available for {TIME_PERIODS.find(p => p.key === selectedPeriod)?.label || 'this period'}
-          </Text>
-        </View>
-      );
-    }
+  const statusItems = [
+    { key: 'interested', value: stats.interested },
+    { key: 'not_interested', value: stats.not_interested },
+    { key: 'escalate_to_sonia', value: stats.escalate_to_sonia },
+    { key: 'declined', value: stats.declined },
+    { key: 'busy_call_later', value: stats.busy_call_later },
+    { key: 'married_engaged', value: stats.married_engaged },
+    { key: 'complete_soon', value: stats.complete_soon },
+    { key: 'need_help_completing', value: stats.need_help_completing },
+    { key: 'not_serious', value: stats.not_serious },
+    { key: 'pending', value: stats.pending },
+  ].filter(item => item.value > 0);
 
-    const statusItems = [
-      { key: 'interested', value: stats.interested },
-      { key: 'not_interested', value: stats.not_interested },
-      { key: 'escalate_to_sonia', value: stats.escalate_to_sonia },
-      { key: 'declined', value: stats.declined },
-      { key: 'busy_call_later', value: stats.busy_call_later },
-      { key: 'married_engaged', value: stats.married_engaged },
-      { key: 'complete_soon', value: stats.complete_soon },
-      { key: 'need_help_completing', value: stats.need_help_completing },
-      { key: 'not_serious', value: stats.not_serious },
-      { key: 'pending', value: stats.pending },
-    ].filter(item => item.value > 0);
-
-    if (statusItems.length === 0) {
-       return (
-        <View style={[styles.emptyContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
-          <Ionicons name="stats-chart" size={48} color={isDark ? '#64748b' : '#94a3b8'} />
-          <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-            No records found for {TIME_PERIODS.find(p => p.key === selectedPeriod)?.label}
-          </Text>
+  return (
+    <LinearGradient
+      colors={isDark ? ['#1e293b', '#334155'] : ['#ffffff', '#f8fafc']}
+      style={styles.container}
+    >
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <LinearGradient
+            colors={['#3b82f6', '#8b5cf6']}
+            style={styles.iconContainer}
+          >
+            <Ionicons name="stats-chart" size={24} color="white" />
+          </LinearGradient>
+          <View style={styles.titleContent}>
+            <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+              My Statistics
+            </Text>
+            <Text style={[styles.subtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+              {currentUser} • Total: {stats.total}
+            </Text>
+          </View>
         </View>
         
-        {/* Toggle Button */}
         <View style={styles.toggleContainer}>
           <TouchableOpacity
             style={[
@@ -224,7 +196,6 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Send Email Button */}
         <TouchableOpacity
           style={[
             styles.emailButton,
@@ -337,31 +308,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
-  filterScroll: {
-    flexGrow: 0,
-  },
-  filterContainer: {
-    gap: 8,
-  },
-  filterChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    marginBottom: 4,
-  },
-  activeFilterChip: {
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  filterText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   content: {
     maxHeight: 300,
-    minHeight: 150,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -435,6 +383,29 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     textAlign: 'center',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(148, 163, 184, 0.1)',
+    borderRadius: 8,
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  activeToggle: {
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   emailButton: {
     flexDirection: 'row',
