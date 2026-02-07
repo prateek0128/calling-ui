@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
-  TextInput,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getStatesAndCities, StatesAndCitiesResponse } from '../endpoints/location';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { getStatesAndCities, StatesAndCitiesData } from '../endpoints/location';
 
 interface LocationPickerProps {
   selectedState?: string;
@@ -29,7 +29,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
 }) => {
   const [showStateModal, setShowStateModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
-  const [locationData, setLocationData] = useState<StatesAndCitiesResponse | null>(null);
+  const [locationData, setLocationData] = useState<StatesAndCitiesData | null>(null);
   const [loading, setLoading] = useState(false);
   const [stateSearch, setStateSearch] = useState('');
   const [citySearch, setCitySearch] = useState('');
@@ -41,8 +41,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   const fetchLocationData = async () => {
     setLoading(true);
     try {
-      const data = await getStatesAndCities();
-      setLocationData(data);
+      const response = await getStatesAndCities();
+      if (response.success) {
+        setLocationData(response.data);
+      }
     } catch (error) {
       console.error('Error fetching location data:', error);
     } finally {

@@ -1,8 +1,14 @@
 import { ApiRequest, baseURL } from '../services/api';
 
-export interface StatesAndCitiesResponse {
+export interface StatesAndCitiesData {
   states: string[];
   cities: string[];
+}
+
+export interface StatesAndCitiesResponse {
+  success: boolean;
+  message?: string;
+  data: StatesAndCitiesData;
 }
 
 export const getStatesAndCities = async (): Promise<StatesAndCitiesResponse> => {
